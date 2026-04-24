@@ -299,5 +299,6 @@ python server.py
 
 ## 相关链接
 
+- GitHub 仓库：https://github.com/RollingGo-AI/rollinggo-readme
 - API Key 申请：https://rollinggo.store/apply
 - MCP 标准：https://modelcontextprotocol.io/

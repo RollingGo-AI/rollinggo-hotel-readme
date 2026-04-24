@@ -299,5 +299,6 @@ The server does not read API keys from `.env`. Send API key in request headers:
 
 ## Links
 
+- GitHub repository: https://github.com/RollingGo-AI/rollinggo-readme
 - API key application: https://rollinggo.store/apply
 - MCP standard: https://modelcontextprotocol.io/

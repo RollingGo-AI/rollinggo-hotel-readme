@@ -205,5 +205,6 @@ If your MCP client requires explicit headers, add them according to your busines
 
 ## Links
 
+- GitHub repository: https://github.com/RollingGo-AI/rollinggo-readme
 - API key application: https://rollinggo.store/apply
 - MCP standard: https://modelcontextprotocol.io/
