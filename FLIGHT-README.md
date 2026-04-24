@@ -1,78 +1,48 @@
-# RollingGo MCP Server
+# RollingGo Flight MCP Server
 
-`RollingGo-MCP` 是一个基于 MCP (Model Context Protocol) 的酒店搜索服务。
-本文档已按在线 `RollingGo-MCP` 工具的最新实测结果更新（更新日期：2026-02-26）。
+`RollingGo-Flight-MCP` 是一个基于 MCP的机票服务，面向 AI Agent 和 MCP 客户端提供机场检索和航班查询能力。（更新日期：2026-04-24）。
+
+## 在线端点
+
+- MCP URL: `https://mcp.rollinggo.cn/mcp/flight`
+- Transport: `streamable_http`
+- 当前在线配置：无需在客户端侧配置 Bearer Token。如私有部署或业务渠道需要 API Key，请以实际环境配置为准。
 
 ## 工具列表
 
-当前在线 MCP 提供 3 个工具：
+当前机票 MCP 对外文档保留 2 个可用工具：
 
-1. `searchHotels`：按地点、日期、星级、人数、标签等条件搜索酒店
-2. `getHotelDetail`：查询指定酒店的实时房型与价格详情
-3. `getHotelSearchTags`：获取可用于 `searchHotels.hotelTags` 的标签元数据
+1. `searchAirports`：根据城市名、机场名、机场代码等关键字搜索机场/城市信息
+2. `searchFlights`：查询指定日期、航线、人数、舱等的航班列表和价格
 
-## 1) searchHotels
+## 推荐调用流程
+
+1. 如果用户只提供自然语言城市名，先调用 `searchAirports` 获取可用的 `cityCode` 或 `airportCode`。
+2. 调用 `searchFlights` 查询航班列表、航段信息和价格。
+3. 价格和库存都可能随供应商实时变化；展示给用户前或下单前建议重新查询。
+
+## 1) searchAirports
+
+根据关键字搜索机场、城市或相关交通节点信息。
 
 ### 输入参数
 
-- `originQuery` (string，必填)：用户原始提问语句。
-- `place` (string，必填)：地点名称，建议尽量详细（城市/机场/景点/详细地址等）。
-- `placeType` (string，必填)：地点类型，支持 `城市`、`机场`、`景点`、`火车站`、`地铁站`、`酒店`、`区/县`、`详细地址`。
-- `countryCode` (string，选填)：国家二字码（ISO 3166-1），如 `CN`、`US`。
-- `size` (number，选填，默认：`5`)：返回酒店数量，最大 `20`。
-- `checkInParam` (object，选填)：入住相关参数。
-- `filterOptions` (object，选填)：筛选参数。
-- `hotelTags` (object，选填)：标签/品牌/预算筛选。
-
-`checkInParam` 子字段：
-
-- `adultCount` (number，选填，默认：`2`)：每间房成人数。
-- `checkInDate` (string，选填，格式：`YYYY-MM-DD`)：入住日期。未传或早于当天时，自动使用“明天”；格式错误会返回参数错误。
-- `stayNights` (number，选填，默认：`1`)：入住晚数。
-
-`filterOptions` 子字段：
-
-- `distanceInMeter` (number，选填)：与 POI 的直线距离（米），POI 场景生效时默认 `5000`。
-- `starRatings` (number[]，选填)：星级范围，默认 `[0.0, 5.0]`，步长 `0.5`。
-
-`hotelTags` 子字段：
-
-- `preferredTags` (string[]，选填)：偏好标签。
-- `requiredTags` (string[]，选填)：必须命中标签（强约束）。
-- `excludedTags` (string[]，选填)：排除标签。
-- `preferredBrands` (string[]，选填)：偏好品牌。
-- `maxPricePerNight` (number，选填)：每晚预算上限（人民币）。
-- `minRoomSize` (number，选填)：最小房间面积（平方米）。
+- `keyword` (string，必填)：搜索关键字，例如城市名、机场名、机场代码。示例：`杭州`、`Hangzhou`、`HGH`、`成都`、`CTU`。
 
 ### 输出结构
 
 ```json
 {
-  "message": "酒店搜索成功",
-  "hotelInformationList": [
+  "message": "机场搜索成功",
+  "airPortInformationList": [
     {
-      "hotelId": 43615,
-      "bookingUrl": "https://rollinggo.cn/pages/hotel/detail/index?...",
-      "name": "北京天伦王朝酒店(Sunworld Dynasty Hotel Beijing)",
-      "brand": null,
-      "address": "王府井大街50号",
-      "destinationId": "6140156",
-      "latitude": 39.917748,
-      "longitude": 116.412249,
-      "distanceInMeters": 205,
-      "starRating": 5.0,
-      "price": {
-        "message": "查价成功,最低价:626.0, 币种:CNY",
-        "hasPrice": true,
-        "currency": "CNY",
-        "lowestPrice": 626.0
-      },
-      "areaCode": "CN",
-      "description": "...",
-      "imageUrl": "https://image-cdn.RollingGo.com/...",
-      "hotelAmenities": ["24小时前台", "WIFI"],
-      "score": 1.0,
-      "tags": ["临近商场", "免费WiFi"]
+      "airportCode": "TFU",
+      "airportName": "Tianfu Airport",
+      "cityCode": "CTU",
+      "cityName": "Chengdu",
+      "countryCode": "CN",
+      "countryName": "China",
+      "timeZone": "+08:00"
     }
   ]
 }
@@ -80,215 +50,144 @@
 
 说明：
 
-- `price` 为对象，不是数字。
-- 不同城市/供应源下，字段可能缺失或为 `null`。
+- `airportCode` 可作为 `searchFlights.fromAirport` / `searchFlights.toAirport` 使用。
+- `cityCode` 可作为 `searchFlights.fromCity` / `searchFlights.toCity` 使用。
+- 搜索结果由供应商返回，可能包含城市相关交通节点，客户端应结合 `cityCode`、`airportCode`、`countryCode` 做二次筛选。
+- 当没有匹配结果时，`airPortInformationList` 可能为空数组。
 
-## 2) getHotelDetail
+## 2) searchFlights
+
+查询指定日期、航线、乘客人数和舱等的航班方案。
 
 ### 输入参数
 
-- `hotelId` (number，选填)：酒店 ID。与 `name` 二选一，若同时传入优先使用 `hotelId`。
-- `name` (string，选填)：酒店名称（模糊匹配）。
-- `dateParam` (object，选填)：入住离店日期参数。
-- `occupancyParam` (object，选填)：入住人数与房间数量参数。
-- `localeParam` (object，选填)：国家与币种参数。
-
-`dateParam` 子字段：
-
-- `checkInDate` (string，选填，格式：`YYYY-MM-DD`)：入住日期。为空/格式错误/早于当天时自动使用“明天”。
-- `checkOutDate` (string，选填，格式：`YYYY-MM-DD`)：离店日期。为空/格式错误/不晚于入住日期时自动使用 `checkInDate + 1` 天。
-
-`occupancyParam` 子字段：
-
-- `adultCount` (number，选填，默认：`2`)：每间房成人数。
-- `childCount` (number，选填，默认：`0`)：每间房儿童数。
-- `childAgeDetails` (number[]，选填)：儿童年龄列表，如 `[3,5]`。
-- `roomCount` (number，选填，默认：`1`)：房间数量。
-
-`localeParam` 子字段：
-
-- `countryCode` (string，选填，默认：`CN`)：国家二字码。
-- `currency` (string，选填，默认：`CNY`)：币种。
+- `adultNumber` (integer，必填)：成人数量。
+- `childNumber` (integer，必填)：儿童数量，没有儿童时传 `0`。
+- `cabinGrade` (string，必填)：舱等偏好，支持：
+  - `ECONOMY`：经济舱
+  - `PREMIUM_ECONOMY`：超级经济舱
+  - `BUSINESS`：商务舱
+  - `FIRST`：头等舱
+- `tripType` (string，必填)：行程类型，支持：
+  - `ONE_WAY`：单程
+  - `ROUND_TRIP`：往返
+- `fromDate` (string，必填，格式：`YYYY-MM-DD`)：出发日期。
+- `retDate` (string，往返必填，格式：`YYYY-MM-DD`)：返程日期。`tripType=ROUND_TRIP` 时使用。
+- `fromCity` (string，选填)：出发城市代码，与 `fromAirport` 二选一。示例：`HGH`。
+- `fromAirport` (string，选填)：出发机场代码，与 `fromCity` 二选一。示例：`HGH`。
+- `toCity` (string，选填)：到达城市代码，与 `toAirport` 二选一。示例：`CTU`。
+- `toAirport` (string，选填)：到达机场代码，与 `toCity` 二选一。示例：`TFU`。
 
 ### 输出结构
 
 ```json
 {
-  "success": true,
-  "errorMessage": null,
-  "hotelId": 43615,
-  "bookingUrl": "https://rollinggo.cn/pages/hotel/detail/index?...",
-  "name": "北京天伦王朝酒店(Sunworld Dynasty Hotel Beijing)",
-  "checkIn": "2026-03-05",
-  "checkOut": "2026-03-06",
-  "roomRatePlans": [
+  "message": "航班搜索成功",
+  "flightInformationList": [
     {
-      "roomTypeId": 4984714,
-      "roomName": "Superior Room",
-      "roomNameCn": "高级客房",
-      "ratePlanId": "7012072001634754626",
-      "ratePlanName": "Superior Room King Bed , 1 King Bed",
-      "bedType": 73,
-      "bedTypeDescription": "未知",
+      "routingId": "...",
+      "totalAdultPrice": 1813.0,
+      "totalChildPrice": 0.0,
       "currency": "CNY",
-      "totalPrice": 0,
-      "totalSalesRate": null,
-      "inventoryCount": null,
-      "isOnRequest": null,
-      "recommendIndex": null,
-      "cancellationPolicies": [
+      "fromSmartValueScore": 95.0,
+      "validatingCarrier": "3U",
+      "fromSegments": [
         {
-          "fromDate": "2026-03-02T10:00:00+08:00",
-          "toDate": null,
-          "amount": 634,
-          "percent": null,
-          "type": null,
-          "description": null
+          "flightNumber": "3U8916",
+          "depTime": "2026-05-01T17:50:00",
+          "arrTime": "2026-05-01T21:00:00",
+          "depAirport": "HGH",
+          "arrAirport": "CTU",
+          "duration": "190",
+          "stopCities": ""
         }
       ],
-      "includedFees": null,
-      "excludedFees": null,
-      "metadata": null
+      "retSegments": []
     }
   ]
 }
 ```
 
+字段说明：
+
+- `routingId`：航线唯一 ID，标识本次搜索返回的航班方案。
+- `totalAdultPrice`：成人总价，币种见 `currency`。
+- `totalChildPrice`：儿童总价，币种见 `currency`。
+- `fromSmartValueScore`：供应商返回的综合推荐分，分数越高通常代表价格、时间、直飞等综合表现越好。
+- `validatingCarrier`：出票/承运相关航司代码。
+- `fromSegments`：去程航段列表。直飞通常只有 1 段，中转会有多段。
+- `retSegments`：返程航段列表。单程通常为空数组。
+- `duration`：航段飞行时长，单位为分钟，当前返回为字符串。
+- `stopCities`：经停城市；无经停时通常为空字符串。
+
 说明：
 
-- 失败时可能返回错误文本（如“获取价格失败，请稍后重试”），也可能返回结构化字段。
-- `roomRatePlans` 数组可能很长，建议客户端分页或限制展示数量。
-
-## 3) getHotelSearchTags
-
-用于获取 `searchHotels.hotelTags` 可用标签，适合本地缓存并在客户端做意图映射。
-
-### 输出结构
-
-```json
-{
-  "tags": [
-    {
-      "name": "免费WiFi",
-      "category": "核心设施",
-      "description": "提供免费WiFi"
-    }
-  ],
-  "usageGuide": {
-    "tagUsage": "将标签名称放入 hotelTags.preferredTags（偏好）、requiredTags（必须）或 excludedTags（排除）列表中",
-    "exampleRequest": "{...}"
-  }
-}
-```
-
-常见标签分类包括：
-
-- 品牌与评分
-- 特色卖点
-- 核心设施
-- 亲子家庭
-- 服务细节
-- 服务与餐饮
-- 交通与支付
-- 景观与房型
-- 酒店类型
-- 价格相关
+- 价格和库存具有实时性，展示给用户前建议标注“以实际下单为准”。
+- 同一城市可能包含多个机场，使用 `fromAirport` / `toAirport` 可以限制到具体机场。
+- 如果用户只说“成都”“上海”等城市，建议优先使用 `fromCity` / `toCity` 让服务返回覆盖该城市多机场的结果。
 
 ## 使用示例
 
-### 示例 1：城市搜索
+### 示例 1：搜索机场/城市代码
 
 ```json
 {
-  "originQuery": "帮我找北京 2 晚 4 星以上酒店",
-  "place": "北京",
-  "placeType": "城市",
-  "checkInParam": {
-    "checkInDate": "2026-03-01",
-    "stayNights": 2
-  },
-  "filterOptions": {
-    "starRatings": [4.0, 5.0]
-  },
-  "size": 5
+  "keyword": "CTU"
 }
 ```
 
-### 示例 2：带标签与预算约束
+### 示例 2：杭州到成都，五一单程，1 位成人，经济舱
 
 ```json
 {
-  "originQuery": "在北京找免费WiFi、每晚1000以内的品质酒店",
-  "place": "北京",
-  "placeType": "城市",
-  "hotelTags": {
-    "preferredTags": ["免费WiFi", "品质酒店"],
-    "maxPricePerNight": 1000
-  },
-  "size": 5
+  "adultNumber": 1,
+  "childNumber": 0,
+  "cabinGrade": "ECONOMY",
+  "fromCity": "HGH",
+  "toCity": "CTU",
+  "fromDate": "2026-05-01",
+  "tripType": "ONE_WAY"
 }
 ```
 
-### 示例 3：查询酒店房型与价格
+### 示例 3：杭州到成都往返，1 位成人，经济舱
 
 ```json
 {
-  "hotelId": 43615,
-  "dateParam": {
-    "checkInDate": "2026-03-05",
-    "checkOutDate": "2026-03-06"
-  },
-  "occupancyParam": {
-    "adultCount": 2,
-    "roomCount": 1
-  },
-  "localeParam": {
-    "currency": "CNY",
-    "countryCode": "CN"
-  }
+  "adultNumber": 1,
+  "childNumber": 0,
+  "cabinGrade": "ECONOMY",
+  "fromCity": "HGH",
+  "toCity": "CTU",
+  "fromDate": "2026-05-01",
+  "retDate": "2026-05-05",
+  "tripType": "ROUND_TRIP"
 }
 ```
-
-## 部署与运行
-
-### 1. 获取源码
-
-```bash
-git clone https://github.com/RollingGo-AI/rollinggo-hotel-mcp.git
-cd rollinggo-hotel-mcp
-```
-
-### 2. 安装依赖
-
-```bash
-python -m venv venv
-venv\Scripts\activate   # Windows
-pip install -r requirements.txt
-```
-
-### 3. 启动服务
-
-```bash
-python server.py
-```
-
-默认 MCP 端点：`http://127.0.0.1:8000/mcp`
-
-### 4. 在 MCP 客户端通过 headers 传 API Key
-
-当前服务端不会从 `.env` 读取 API Key，请在 MCP 客户端配置请求头：
-
-- 推荐：`Authorization: Bearer YOUR_API_KEY`
-- 兼容：`X-Secret-Key: YOUR_API_KEY`
 
 ## MCP 客户端配置示例
+
+不同 MCP 客户端字段名可能略有差异，核心是配置 `streamable_http` 类型和线上 MCP URL。
 
 ```json
 {
   "mcpServers": {
-    "RollingGo-MCP": {
-      "url": "http://localhost:8000/mcp",
-      "type": "http",
+    "RollingGo-Flight-MCP": {
+      "url": "https://mcp.rollinggo.cn/mcp/flight",
+      "type": "streamable_http"
+    }
+  }
+}
+```
+
+如果你的 MCP 客户端要求显式 headers，可按业务环境补充：
+
+```json
+{
+  "mcpServers": {
+    "RollingGo-Flight-MCP": {
+      "url": "https://mcp.rollinggo.cn/mcp/flight",
+      "type": "streamable_http",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY"
       }
@@ -297,7 +196,14 @@ python server.py
 }
 ```
 
+## 接入建议
+
+- LLM 参数抽取时，先判断用户要“单程”还是“往返”；往返必须补充 `retDate`。
+- 用户只提供中文城市名时，可先用 `searchAirports`，但如果已经知道 IATA 城市代码，可以直接调用 `searchFlights`。
+- 国内城市多机场场景下，城市代码适合泛查，机场代码适合精确筛选。
+- 展示航班时建议至少显示航班号、起降时间、出发/到达机场、总价、币种、是否中转。
+
 ## 相关链接
 
-- API Key 申请：https://mcp.agentichotel.cn/apply
+- API Key 申请：https://rollinggo.store/apply
 - MCP 标准：https://modelcontextprotocol.io/
